@@ -130,6 +130,77 @@ static inline uint32_t IRAM_ATTR gpio_fast_read_bank1(void)
     return REG_READ(GPIO_IN1_REG) & 0xFF;
 }
 
+/** Toggle `gpio_num` output state. Reads current driven output register,
+ *  then sets or clears accordingly — two register accesses but no CPU
+ *  critical section required. Works for bank 0 and bank 1 pins. */
+static inline void IRAM_ATTR gpio_fast_toggle(uint8_t gpio_num)
+{
+    if (gpio_num < 32) {
+        uint32_t out = REG_READ(GPIO_OUT_REG);
+        if (out & (1UL << gpio_num)) {
+            REG_WRITE(GPIO_OUT_W1TC_REG, 1UL << gpio_num);
+        } else {
+            REG_WRITE(GPIO_OUT_W1TS_REG, 1UL << gpio_num);
+        }
+    } else {
+        uint32_t out1 = REG_READ(GPIO_OUT1_REG);
+        if (out1 & (1UL << (gpio_num - 32))) {
+            REG_WRITE(GPIO_OUT1_W1TC_REG, 1UL << (gpio_num - 32));
+        } else {
+            REG_WRITE(GPIO_OUT1_W1TS_REG, 1UL << (gpio_num - 32));
+        }
+    }
+}
+
+/** Toggle every pin present in `mask` (bank 0, pins 0-31) in exactly two
+ *  register writes — pins currently HIGH go LOW and vice versa, atomically
+ *  within each bank. */
+static inline void IRAM_ATTR gpio_fast_toggle_mask(uint32_t mask)
+{
+    uint32_t out = REG_READ(GPIO_OUT_REG);
+    uint32_t set = mask & ~out;  /* bits that are 0 → must go high */
+    uint32_t clr = mask &  out;  /* bits that are 1 → must go low  */
+    REG_WRITE(GPIO_OUT_W1TC_REG, clr);
+    REG_WRITE(GPIO_OUT_W1TS_REG, set);
+}
+
+/* ---- Hot path: batch ops on pins 32-39 (bank 1) ----
+ * Mirror of the bank-0 mask API but for the upper 8 GPIO pins.
+ * Mask bits are right-aligned: bit 0 == GPIO32, bit 7 == GPIO39.
+ * Only bits 0-7 are significant; upper bits are ignored.
+ */
+
+/** Set every pin in `mask` (bank 1, pins 32-39) high, atomically. */
+static inline void IRAM_ATTR gpio_fast_set_mask1(uint32_t mask)
+{
+    REG_WRITE(GPIO_OUT1_W1TS_REG, mask & 0xFF);
+}
+
+/** Clear every pin in `mask` (bank 1, pins 32-39), atomically. */
+static inline void IRAM_ATTR gpio_fast_clear_mask1(uint32_t mask)
+{
+    REG_WRITE(GPIO_OUT1_W1TC_REG, mask & 0xFF);
+}
+
+/** Write bank 1 pins high/low in two register writes, same semantics as
+ *  gpio_fast_write_mask() but for pins 32-39. */
+static inline void IRAM_ATTR gpio_fast_write_mask1(uint32_t set_mask, uint32_t clear_mask)
+{
+    REG_WRITE(GPIO_OUT1_W1TC_REG, clear_mask & 0xFF);
+    REG_WRITE(GPIO_OUT1_W1TS_REG, set_mask   & 0xFF);
+}
+
+/** Toggle every pin in `mask` (bank 1, pins 32-39). */
+static inline void IRAM_ATTR gpio_fast_toggle_mask1(uint32_t mask)
+{
+    uint32_t out1 = REG_READ(GPIO_OUT1_REG) & 0xFF;
+    uint32_t m    = mask & 0xFF;
+    uint32_t set  = m & ~out1;
+    uint32_t clr  = m &  out1;
+    REG_WRITE(GPIO_OUT1_W1TC_REG, clr);
+    REG_WRITE(GPIO_OUT1_W1TS_REG, set);
+}
+
 #ifdef __cplusplus
 }
 #endif

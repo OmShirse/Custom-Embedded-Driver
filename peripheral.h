@@ -1,7 +1,19 @@
 #ifndef PERIPHERALS_H
 #define PERIPHERALS_H
 
+/**
+ * @file peripheral.h
+ * @brief Bare-metal peripheral register map for STM32 Cortex-M MCUs.
+ *
+ * NOTE: This file targets STM32 hardware (base addresses 0x4002xxxx / 0x4001xxxx).
+ * It is NOT compatible with ESP32. For ESP32 GPIO fast-path operations,
+ * use gpio.h instead.
+ *
+ * Covered peripherals: GPIOA, GPIOB, USART1, SPI1, I2C1
+ */
+
 #include <stdint.h>
+
 
 // ==================== Base Addresses ====================
 #define GPIOA_BASE  0x40020000

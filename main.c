@@ -38,6 +38,19 @@ void app_main(void)
         ESP_LOGI(TAG, "button pressed");
     }
 
+    /* --- Toggle: flip LED_A without knowing its current state --- */
+    for (int i = 0; i < 6; i++) {
+        gpio_fast_toggle(LED_A);   // blink 3 times
+        vTaskDelay(pdMS_TO_TICKS(150));
+    }
+
+    /* --- Batch toggle: all three LEDs flip state in two register writes --- */
+    gpio_fast_set_mask(LED_MASK);          // all on
+    vTaskDelay(pdMS_TO_TICKS(200));
+    gpio_fast_toggle_mask(LED_MASK);       // all off (toggled from on)
+    vTaskDelay(pdMS_TO_TICKS(200));
+    gpio_fast_toggle_mask(LED_MASK);       // all on again
+
     /* --- Throughput demo: toggle LED_A as fast as possible and measure.
      * With gpio_set_level() this loop is dominated by critical-section
      * enter/exit; with gpio_fast_set/clear it's dominated by the actual
@@ -50,5 +63,14 @@ void app_main(void)
     }
     int64_t elapsed_us = esp_timer_get_time() - start;
     ESP_LOGI(TAG, "%d toggles in %lld us (%.1f ns/toggle)",
+             N, elapsed_us, (elapsed_us * 1000.0) / N);
+
+    /* --- Toggle throughput: compare gpio_fast_toggle vs set+clear --- */
+    start = esp_timer_get_time();
+    for (int i = 0; i < N; i++) {
+        gpio_fast_toggle(LED_A);
+    }
+    elapsed_us = esp_timer_get_time() - start;
+    ESP_LOGI(TAG, "%d gpio_fast_toggle calls in %lld us (%.1f ns/call)",
              N, elapsed_us, (elapsed_us * 1000.0) / N);
 }
